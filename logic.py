@@ -5,9 +5,10 @@ import os
 import cv2
 
 class DatabaseManager:
-    def __init__(self, database):
+    def __init__(self, database, money = 110, prize_amount = 0):
         self.database = database
-
+        self.money = money
+        self.prize_amount = prize_amount
     def create_tables(self):
         conn = sqlite3.connect(self.database)
         with conn:
@@ -84,7 +85,7 @@ class DatabaseManager:
     def get_prize_img(self, prize_id):
         conn = sqlite3.connect(self.database)
         cur = conn.cursor()
-        cur.execute("SELECT image FROM prizes WHERE prize_id = ?", (prize_id))
+        cur.execute("SELECT image FROM prizes WHERE prize_id = ?", (prize_id,))
         return cur.fetchall()[0][0]
 
     def get_random_prize(self):
@@ -92,7 +93,7 @@ class DatabaseManager:
         cur = conn.cursor()
         cur.execute("SELECT prize_id, image FROM prizes WHERE used = 0 ORDER BY RANDOM() LIMIT 1")
         return cur.fetchall()[0]
-
+    
     def get_winners_count(self, prize_id):
         conn = sqlite3.connect(self.database)
         cur = conn.cursor()
@@ -110,7 +111,37 @@ class DatabaseManager:
                         LIMIT 10
                         "''')
             return cur.fetchall()
-  
+
+    def buy_img(self, money):
+        conn = sqlite3.connect(self.database)
+        with conn:
+            cur = conn.cursor()
+        # Ищем неиспользованный приз
+            cur.execute("SELECT prize_id, image FROM prizes WHERE used = 0 ORDER BY RANDOM() LIMIT 1")
+            result = cur.fetchone()
+            if not result:
+                return None
+            
+        # Помечаем приз как использованный
+            prize_id = result[0]
+            cur.execute("UPDATE prizes SET used = 1 WHERE prize_id = ?", (prize_id,))
+            conn.commit()
+        
+        # Списываем деньги только если нашли приз
+            self.money -= 10
+            return result
+    def sell_img(self):
+        conn = sqlite3.connect(self.database)
+        with conn:
+            cur = conn.cursor()
+            cur.execute('''SELECT winners.user_id, COUNT(winners.prize_id) as count_prize FROM winners
+                        INNER JOIN users ON winners.user_id = users.user_id
+                        GROUP BY winners.user_id
+                        ORDER BY RANDOM()
+                        LIMIT 1
+                         ''')
+            return cur.fetchall()
+        
 def hide_img(img_name):
     image = cv2.imread(f'img/{img_name}')
     blurred_image = cv2.GaussianBlur(image, (15, 15), 0)

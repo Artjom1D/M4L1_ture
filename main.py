@@ -14,6 +14,3 @@ print(cur.fetchall())
 
 cur.execute("SELECT vote_count FROM movies WHERE release_date < '1980' and vote_average > 8 ORDER BY vote_count DESC LIMIT 1")
 print(cur.fetchall())
-
-
-

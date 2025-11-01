@@ -13,15 +13,50 @@ def gen_markup(id):
     markup.add(InlineKeyboardButton("Получить!", callback_data=id))
     return markup
 
+def gea_markup(id):
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1
+    markup.add(InlineKeyboardButton("Купить", callback_data="buy"))
+    return markup
+
+def geo_markup(id):
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1
+    markup.add(InlineKeyboardButton("Продать", callback_data="sell"))
+    return markup
+
+
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
 
-    prize_id = call.data
     user_id = call.message.chat.id
+    prize_id = call.data
+    if call.data == "buy":
 
-    img = manager.get_prize_img(prize_id)
-    with open(f'img/{img}', 'rb') as photo:
-        bot.send_photo(user_id, photo)
+        result = manager.buy_img(manager.money)
+        if not result:
+            bot.send_message(user_id, "Нет доступных картинок для покупки!")
+            return
+            
+        prize_id, img = result
+        with open(f'img/{img}', 'rb') as photo:
+            bot.send_photo(user_id, photo, caption="Поздравляем с покупкой!")
+            manager.prize_amount += 1
+        return
+    
+    elif call.data == "sell":
+        result = manager.sell_img()
+        if result == None:
+            bot.send_message(user_id, "Ошибка при продаже картинки!")
+            return
+        manager.money += 5     
+        bot.send_message(user_id, f"Картинка продана! Получено 5 монет. Баланс: {manager.money}")
+        return
+    else:
+        img = manager.get_prize_img(prize_id)
+        manager.prize_amount += 1
+        with open(f'img/{img}', 'rb') as photo:
+            bot.send_photo(user_id, photo)
 
 
 def send_message():
@@ -79,6 +114,19 @@ def callback_query(call):
         bot.send_message(user_id, "К сожалению, ты не успел получить картинку! Попробуй в следующий раз!)")
     
 
+@bot.message_handler(commands = ["shop"])
+def shop(message):
+    bot.send_message(message.chat.id, f"Ваш баланс: {manager.money} монет")
+    bot.send_message(message.chat.id, "Магазин: \n 1. Купить случайную картину за 10 монет \n 2. Продать случайную картину за 5 монет")
+    if manager.money >= 10:
+        bot.send_message(message.chat.id, "Вы можете купить картину", reply_markup=gea_markup(id="buy"))
+    else:
+        bot.send_message(message.chat.id, "У вас недостаточно монет для покупки картины")
+
+    if manager.prize_amount != 0:
+        bot.send_message(message.chat.id, "Вы можете продать картину", reply_markup=geo_markup(id="sell"))
+    else:
+        bot.send_message(message.chat.id, "У вас нет картин для продажи")
 def polling_thread():
     bot.polling(none_stop=True)
 
